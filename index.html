@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aeronix | Digital Alchemists</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+
+    <!-- Tailwind Config -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Bricolage Grotesque', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        aeronix: {
+                            blue: '#007AFF',
+                            dark: '#050505',
+                            card: '#1c1c1e',
+                        }
+                    },
+                    animation: {
+                        'marquee': 'marquee 30s linear infinite',
+                        'spin-slow': 'spin 8s linear infinite',
+                    },
+                    keyframes: {
+                        marquee: {
+                            '0%': { transform: 'translateX(0%)' },
+                            '100%': { transform: 'translateX(-100%)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* --- CORE & RESET --- */
+        body {
+            background-color: #050505;
+            color: #ffffff;
+            margin: 0;
+            overflow-x: hidden;
+        }
+
+        /* Custom cursor only for desktop */
+        @media (pointer: fine) {
+            body { cursor: none; }
+            #cursor-canvas { display: block; }
+        }
+        @media (pointer: coarse) {
+            #cursor-canvas { display: none; }
+        }
+
+        /* --- HOUDINI BORDER BEAM --- */
+        @property --gradient-angle {
+            syntax: "<angle>";
+            initial-value: 0deg;
+            inherits: false;
+        }
+
+        .btn-beam {
+            position: relative;
+            background: #000;
+            color: white;
+            border: none;
+            padding: 0.75rem 2rem;
+            font-family: 'JetBrains Mono', monospace;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            letter-spacing: 0.1em;
+            z-index: 10;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s ease;
+        }
+
+        .btn-beam::before, .btn-beam::after {
+            content: "";
+            position: absolute;
+            inset: -1.5px;
+            z-index: -1;
+            background: conic-gradient(
+                from var(--gradient-angle),
+                transparent,
+                #007AFF 20%,
+                transparent 50%
+            );
+            border-radius: 4px;
+            animation: rotation 3s linear infinite;
+        }
+
+        .btn-beam::after { filter: blur(8px); }
+
+        .btn-beam-inner {
+            position: absolute;
+            inset: 1px;
+            background: #050505;
+            z-index: -1;
+            border-radius: 3px;
+        }
+
+        @keyframes rotation {
+            0% { --gradient-angle: 0deg; }
+            100% { --gradient-angle: 360deg; }
+        }
+
+        /* --- BACKGROUNDS --- */
+        .spline-layer {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100vh;
+            z-index: -1;
+            opacity: 0.4;
+            pointer-events: none;
+        }
+        .bg-fallback {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100vh;
+            z-index: -2;
+            background: radial-gradient(circle at 50% 50%, #0d1e35 0%, #000 100%);
+        }
+
+        /* --- CURSOR CANVAS --- */
+        #cursor-canvas {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 9999;
+            mix-blend-mode: screen;
+        }
+
+        /* --- GLASS CARDS & TILT --- */
+        .card-container { perspective: 1000px; }
+        .glass-card {
+            background: rgba(28, 28, 30, 0.4);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            transform-style: preserve-3d;
+            transition: transform 0.1s ease-out, border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+        .glass-card:hover {
+            border-color: rgba(0, 122, 255, 0.4);
+            box-shadow: 0 0 30px rgba(0, 122, 255, 0.15);
+        }
+
+        /* --- SCROLL REVEAL --- */
+        .reveal {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        .reveal.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* --- MOBILE MENU --- */
+        #mobile-menu {
+            transform: translateX(100%);
+            transition: transform 0.4s cubic-bezier(0.7, 0, 0.3, 1);
+        }
+        #mobile-menu.open { transform: translateX(0); }
+
+        .text-glow { text-shadow: 0 0 15px rgba(0, 122, 255, 0.4); }
+    </style>
+</head>
+<body class="antialiased selection:bg-aeronix-blue selection:text-white">
+
+    <canvas id="cursor-canvas"></canvas>
+    <div class="bg-fallback"></div>
+    <div class="spline-layer">
+        <iframe src="https://my.spline.design/iphone15procopy-pmwnMexXbAOzhjJgYVtuY6kv/" frameborder="0" width="100%" height="100%"></iframe>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="fixed top-0 w-full z-50 border-b border-white/10 bg-black/60 backdrop-blur-xl">
+        <div class="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+            <a href="#" class="flex items-center gap-3 group">
+                <div class="w-9 h-9 relative overflow-hidden bg-white/5 rounded-lg flex items-center justify-center border border-white/10">
+                    <img src="image/1.jpg" alt="Aeronix Logo" class="w-6 h-6 object-contain transition-transform group-hover:rotate-12">
+                </div>
+                <span class="text-xl font-display font-bold tracking-tighter text-white">AERONIX</span>
+            </a>
+
+            <!-- Desktop Menu -->
+            <div class="hidden lg:flex items-center gap-10 font-mono text-[11px] uppercase tracking-[0.2em]">
+                <a href="#services" class="hover:text-aeronix-blue transition-colors">Services</a>
+                <a href="#why-us" class="hover:text-aeronix-blue transition-colors">Automation</a>
+                <a href="#pricing" class="hover:text-aeronix-blue transition-colors">Pricing</a>
+                <a href="#contact" class="btn-beam">
+                    <span class="relative z-10">Start Project</span>
+                    <div class="btn-beam-inner"></div>
+                </a>
+            </div>
+            
+            <!-- Mobile Toggle -->
+            <button id="menu-toggle" class="lg:hidden text-white p-2">
+                <i data-lucide="menu" id="menu-icon"></i>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Mobile Menu Overlay -->
+    <div id="mobile-menu" class="fixed inset-0 z-[60] bg-black lg:hidden flex flex-col p-8 pt-24">
+        <button id="menu-close" class="absolute top-6 right-6 text-white">
+            <i data-lucide="x"></i>
+        </button>
+        <div class="flex flex-col gap-8 text-3xl font-display font-bold">
+            <a href="#services" class="mobile-link">Services</a>
+            <a href="#why-us" class="mobile-link">Automation</a>
+            <a href="#pricing" class="mobile-link">Pricing</a>
+            <a href="#contact" class="mobile-link">Contact</a>
+        </div>
+        <div class="mt-auto pt-10 border-t border-white/10">
+            <p class="text-gray-500 font-mono text-xs uppercase mb-4">Social Protocols</p>
+            <div class="flex gap-4">
+                <a href="#" class="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center"><i data-lucide="facebook" class="w-5 h-5"></i></a>
+                <a href="#" class="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center"><i data-lucide="mail" class="w-5 h-5"></i></a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hero Section -->
+    <header class="relative min-h-screen flex flex-col justify-center items-center text-center px-6 pt-20">
+        <div class="reveal">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-aeronix-blue/30 bg-aeronix-blue/10 mb-8">
+                <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                <span class="text-[10px] font-mono text-aeronix-blue uppercase tracking-widest">Nodes Operational</span>
+            </div>
+
+            <h1 class="text-5xl md:text-7xl lg:text-9xl font-display font-extrabold leading-[0.9] mb-8 tracking-tighter">
+                DIGITAL <br>
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-white via-blue-200 to-aeronix-blue text-glow">ALCHEMISTS</span>
+            </h1>
+
+            <p class="max-w-xl mx-auto text-base md:text-lg text-gray-400 font-sans font-light mb-12 leading-relaxed">
+                We bridge the gap between imagination and execution. Specialized in AI agents, high-performance web systems, and creative automation.
+            </p>
+
+            <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
+                <a href="#pricing" class="btn-beam min-w-[200px]">
+                    <span class="relative z-10">Deploy Strategy</span>
+                    <div class="btn-beam-inner"></div>
+                </a>
+                <a href="https://wa.me/8801933130952" class="group flex items-center gap-2 text-xs font-mono text-gray-400 hover:text-white transition-colors">
+                    <i data-lucide="message-circle" class="w-4 h-4"></i>
+                    <span>Connect via WhatsApp</span>
+                    <span class="block w-0 group-hover:w-full transition-all h-px bg-aeronix-blue"></span>
+                </a>
+            </div>
+        </div>
+
+        <!-- Marquee -->
+        <div class="absolute bottom-0 w-full border-t border-white/5 bg-black/40 backdrop-blur-md py-5 overflow-hidden">
+            <div class="animate-marquee whitespace-nowrap flex gap-12 items-center">
+                <span class="text-[10px] font-mono text-aeronix-blue uppercase tracking-[0.3em]">Aeronix System v2.0</span>
+                <span class="text-gray-800">/</span>
+                <span class="text-[10px] font-mono text-white/50 uppercase tracking-[0.3em]">AI Integration</span>
+                <span class="text-gray-800">/</span>
+                <span class="text-[10px] font-mono text-white/50 uppercase tracking-[0.3em]">Web Architecture</span>
+                <span class="text-gray-800">/</span>
+                <span class="text-[10px] font-mono text-white/50 uppercase tracking-[0.3em]">Motion Graphics</span>
+                <span class="text-gray-800">/</span>
+                <span class="text-[10px] font-mono text-aeronix-blue uppercase tracking-[0.3em]">Scalable Solutions</span>
+                <!-- Loop -->
+                <span class="text-gray-800">/</span>
+                <span class="text-[10px] font-mono text-aeronix-blue uppercase tracking-[0.3em]">Aeronix System v2.0</span>
+                <span class="text-gray-800">/</span>
+                <span class="text-[10px] font-mono text-white/50 uppercase tracking-[0.3em]">AI Integration</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Services Section -->
+    <section id="services" class="py-32 relative z-10">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="mb-20 reveal">
+                <h2 class="text-4xl font-display font-bold mb-4">Core Capacities</h2>
+                <div class="h-1 w-16 bg-aeronix-blue"></div>
+            </div>
+
+            <div class="grid md:grid-cols-3 gap-6 card-container">
+                <div class="glass-card rounded-2xl p-8 relative group cursor-pointer tilt-card">
+                    <div class="w-12 h-12 bg-white/5 rounded-xl border border-white/10 flex items-center justify-center mb-10">
+                        <i data-lucide="bot" class="text-aeronix-blue w-6 h-6"></i>
+                    </div>
+                    <h3 class="text-2xl font-display font-bold mb-4">Neural Agents</h3>
+                    <p class="text-gray-400 text-sm leading-relaxed">Custom LLM integrations and automated chatbots designed to handle high-volume customer interactions 24/7.</p>
+                </div>
+
+                <div class="glass-card rounded-2xl p-8 relative group cursor-pointer tilt-card">
+                    <div class="w-12 h-12 bg-white/5 rounded-xl border border-white/10 flex items-center justify-center mb-10">
+                        <i data-lucide="layout" class="text-aeronix-blue w-6 h-6"></i>
+                    </div>
+                    <h3 class="text-2xl font-display font-bold mb-4">Elite Web</h3>
+                    <p class="text-gray-400 text-sm leading-relaxed">High-conversion, performance-optimized web architectures built with React, Next.js, and modern CSS frameworks.</p>
+                </div>
+
+                <div class="glass-card rounded-2xl p-8 relative group cursor-pointer tilt-card">
+                    <div class="w-12 h-12 bg-white/5 rounded-xl border border-white/10 flex items-center justify-center mb-10">
+                        <i data-lucide="zap" class="text-aeronix-blue w-6 h-6"></i>
+                    </div>
+                    <h3 class="text-2xl font-display font-bold mb-4">Motion Design</h3>
+                    <p class="text-gray-400 text-sm leading-relaxed">Dynamic ad animations and motion graphics that capture attention and drive brand narrative in digital spaces.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- WHY CHOOSE US SECTION (New Automation Features) -->
+    <section id="why-us" class="py-24 relative z-10 bg-white/[0.02]">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="text-center mb-16 reveal">
+                <h2 class="text-3xl md:text-5xl font-display font-bold mb-6">Why they choose us</h2>
+                <p class="text-gray-400 max-w-2xl mx-auto">We bridge the gap between your physical business and digital management with seamless automation.</p>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 card-container">
+                <!-- Automation 1 -->
+                <div class="glass-card rounded-2xl p-6 tilt-card border-t-2 border-t-aeronix-blue/30">
+                    <div class="w-12 h-12 rounded-full bg-aeronix-blue/10 flex items-center justify-center mb-6">
+                        <i data-lucide="database" class="text-aeronix-blue w-5 h-5"></i>
+                    </div>
+                    <h4 class="text-lg font-bold mb-3">Self-Inventory Upgrades</h4>
+                    <p class="text-xs text-gray-500 leading-relaxed">Real-time inventory syncing directly into Google Sheets. Monitor stock levels from anywhere in the world.</p>
+                </div>
+
+                <!-- Automation 2 -->
+                <div class="glass-card rounded-2xl p-6 tilt-card border-t-2 border-t-aeronix-blue/30">
+                    <div class="w-12 h-12 rounded-full bg-aeronix-blue/10 flex items-center justify-center mb-6">
+                        <i data-lucide="shopping-cart" class="text-aeronix-blue w-5 h-5"></i>
+                    </div>
+                    <h4 class="text-lg font-bold mb-3">Order Automation</h4>
+                    <p class="text-xs text-gray-500 leading-relaxed">Every customer order is automatically logged into your Google Sheets for seamless fulfillment and tracking.</p>
+                </div>
+
+                <!-- Automation 3 -->
+                <div class="glass-card rounded-2xl p-6 tilt-card border-t-2 border-t-aeronix-blue/30">
+                    <div class="w-12 h-12 rounded-full bg-aeronix-blue/10 flex items-center justify-center mb-6">
+                        <i data-lucide="toggle-right" class="text-aeronix-blue w-5 h-5"></i>
+                    </div>
+                    <h4 class="text-lg font-bold mb-3">Live Stock Control</h4>
+                    <p class="text-xs text-gray-500 leading-relaxed">Toggle "In Stock" or "Out of Stock" status directly from your Google Sheets, updating your website instantly.</p>
+                </div>
+
+                <!-- Automation 4 -->
+                <div class="glass-card rounded-2xl p-6 tilt-card border-t-2 border-t-aeronix-blue/30">
+                    <div class="w-12 h-12 rounded-full bg-aeronix-blue/10 flex items-center justify-center mb-6">
+                        <i data-lucide="bar-chart-3" class="text-aeronix-blue w-5 h-5"></i>
+                    </div>
+                    <h4 class="text-lg font-bold mb-3">Integrated Dashboard</h4>
+                    <p class="text-xs text-gray-500 leading-relaxed">A professional order dashboard built into your website for easy management and data visualization.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing Section -->
+    <section id="pricing" class="py-32 relative z-10 bg-gradient-to-b from-transparent to-black">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="text-center mb-20 reveal">
+                <h2 class="text-4xl md:text-5xl font-display font-bold mb-4">Pricing Protocols</h2>
+                <p class="text-gray-500 font-mono text-sm uppercase tracking-widest">Select your operational tier</p>
+            </div>
+
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6 card-container items-stretch">
+                
+                <!-- Package 1 -->
+                <div class="glass-card rounded-2xl p-8 flex flex-col tilt-card border-t-4 border-t-gray-700">
+                    <h3 class="text-xl font-mono text-gray-400 mb-2">Package 01</h3>
+                    <div class="text-3xl font-display font-bold mb-4">5,000 <span class="text-sm font-sans font-normal text-gray-500">BDT</span></div>
+                    <p class="text-white font-bold mb-6">Build Only</p>
+                    <ul class="text-sm text-gray-400 space-y-3 mb-8 flex-1">
+                        <li class="flex items-center"><i data-lucide="check" class="w-4 h-4 mr-2 text-green-500"></i> Custom Website Design</li>
+                        <li class="flex items-center"><i data-lucide="check" class="w-4 h-4 mr-2 text-green-500"></i> Responsive Layout</li>
+                        <li class="flex items-center"><i data-lucide="x" class="w-4 h-4 mr-2 text-red-500"></i> No Hosting Included</li>
+                    </ul>
+                    <a href="https://wa.me/8801933130952?text=I'm%20interested%20in%20Package%201" class="w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-center transition-colors">Select</a>
+                </div>
+
+                <!-- Package 2 -->
+                <div class="glass-card rounded-2xl p-8 flex flex-col tilt-card border-t-4 border-t-aeronix-blue transform md:-translate-y-4">
+                    <div class="absolute top-0 right-0 bg-aeronix-blue text-xs font-bold px-3 py-1 rounded-bl-lg">POPULAR</div>
+                    <h3 class="text-xl font-mono text-aeronix-blue mb-2">Package 02</h3>
+                    <div class="text-3xl font-display font-bold mb-4">3,000 <span class="text-sm font-sans font-normal text-gray-500">BDT/mo</span></div>
+                    <p class="text-white font-bold mb-6">Build + Host (Own Domain)</p>
+                    <ul class="text-sm text-gray-400 space-y-3 mb-8 flex-1">
+                        <li class="flex items-center"><i data-lucide="check" class="w-4 h-4 mr-2 text-green-500"></i> Full Development</li>
+                        <li class="flex items-center"><i data-lucide="check" class="w-4 h-4 mr-2 text-green-500"></i> Premium Hosting</li>
+                        <li class="flex items-center"><i data-lucide="check" class="w-4 h-4 mr-2 text-green-500"></i> Monthly Maintenance</li>
+                        <li class="text-xs text-gray-500 mt-2">*Requires your own domain</li>
+                    </ul>
+                    <a href="https://wa.me/8801933130952?text=I'm%20interested%20in%20Package%202" class="btn-beam w-full text-center flex justify-center">
+                        <span class="relative z-10">Start Now</span>
+                        <div class="btn-beam-inner"></div>
+                    </a>
+                </div>
+
+                <!-- Package 3 -->
+                <div class="glass-card rounded-2xl p-8 flex flex-col tilt-card border-t-4 border-t-gray-700">
+                    <h3 class="text-xl font-mono text-gray-400 mb-2">Package 03</h3>
+                    <div class="text-3xl font-display font-bold mb-4">2,000 <span class="text-sm font-sans font-normal text-gray-500">BDT/mo</span></div>
+                    <p class="text-white font-bold mb-6">Yearly Contract</p>
+                    <ul class="text-sm text-gray-400 space-y-3 mb-8 flex-1">
+                        <li class="flex items-center"><i data-lucide="check" class="w-4 h-4 mr-2 text-green-500"></i> Best Value for Long Term</li>
+                        <li class="flex items-center"><i data-lucide="check" class="w-4 h-4 mr-2 text-green-500"></i> Build & Host (Own Domain)</li>
+                        <li class="text-xs text-yellow-500 mt-2 flex items-start"><i data-lucide="alert-circle" class="w-3 h-3 mr-1 mt-0.5"></i> Initial Deposit: 4,000 BDT</li>
+                    </ul>
+                    <a href="https://wa.me/8801933130952?text=I'm%20interested%20in%20Package%203" class="w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-center transition-colors">Select</a>
+                </div>
+
+                <!-- Package 4 -->
+                <div class="glass-card rounded-2xl p-8 flex flex-col tilt-card border-t-4 border-t-gray-700">
+                    <h3 class="text-xl font-mono text-gray-400 mb-2">Package 04</h3>
+                    <div class="text-3xl font-display font-bold mb-4">3,500 <span class="text-sm font-sans font-normal text-gray-500">BDT/mo</span></div>
+                    <p class="text-white font-bold mb-6">Sub-Domain Plan</p>
+                    <ul class="text-sm text-gray-400 space-y-3 mb-8 flex-1">
+                        <li class="flex items-center"><i data-lucide="check" class="w-4 h-4 mr-2 text-green-500"></i> Build & Host</li>
+                        <li class="flex items-center"><i data-lucide="check" class="w-4 h-4 mr-2 text-green-500"></i> Includes Sub-domain</li>
+                        <li class="flex items-center"><i data-lucide="check" class="w-4 h-4 mr-2 text-green-500"></i> No domain purchase needed</li>
+                    </ul>
+                    <a href="https://wa.me/8801933130952?text=I'm%20interested%20in%20Package%204" class="w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-center transition-colors">Select</a>
+                </div>
+
+                 <!-- Package 5 -->
+                 <div class="glass-card rounded-2xl p-8 flex flex-col tilt-card border-t-4 border-t-gray-700">
+                    <h3 class="text-xl font-mono text-gray-400 mb-2">Package 05</h3>
+                    <div class="text-3xl font-display font-bold mb-4">2,800 <span class="text-sm font-sans font-normal text-gray-500">BDT/mo</span></div>
+                    <p class="text-white font-bold mb-6">Sub-Domain Yearly</p>
+                    <ul class="text-sm text-gray-400 space-y-3 mb-8 flex-1">
+                        <li class="flex items-center"><i data-lucide="check" class="w-4 h-4 mr-2 text-green-500"></i> Yearly Contract Discount</li>
+                        <li class="flex items-center"><i data-lucide="check" class="w-4 h-4 mr-2 text-green-500"></i> Includes Sub-domain</li>
+                        <li class="text-xs text-yellow-500 mt-2 flex items-start"><i data-lucide="alert-circle" class="w-3 h-3 mr-1 mt-0.5"></i> Initial Deposit: 4,000 BDT</li>
+                    </ul>
+                    <a href="https://wa.me/8801933130952?text=I'm%20interested%20in%20Package%205" class="w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-center transition-colors">Select</a>
+                </div>
+
+                <!-- Package 6 -->
+                <div class="glass-card rounded-2xl p-8 flex flex-col justify-center items-center text-center tilt-card border border-white/20 bg-white/5">
+                    <i data-lucide="globe" class="w-12 h-12 text-aeronix-blue mb-4"></i>
+                    <h3 class="text-xl font-display font-bold mb-2">Need a Domain?</h3>
+                    <p class="text-gray-400 text-sm mb-4">We buy it for you at cost price.</p>
+                    <div class="text-2xl font-bold mb-4">1k - 2k <span class="text-sm font-normal">BDT (Approx)</span></div>
+                    <p class="text-xs text-gray-500 mb-6">"A domain price decides my the name etc." - Index us for quote.</p>
+                    <a href="https://wa.me/8801933130952?text=I%20need%20to%20buy%20a%20domain" class="text-aeronix-blue hover:text-white underline underline-offset-4 transition-colors">Contact for Domain</a>
+                </div>
+
+                
+            </div>
+        </div>
+    </section>
+
+    <!-- Contact & Footer -->
+    <footer id="contact" class="bg-black border-t border-white/10 pt-24 pb-12">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="grid lg:grid-cols-2 gap-20 mb-20">
+                <div>
+                    <div class="flex items-center gap-3 mb-8">
+                        <img src="image/1.jpg" alt="Aeronix" class="w-8 h-8 object-contain">
+                        <span class="text-3xl font-display font-bold tracking-tighter">AERONIX</span>
+                    </div>
+                    <p class="text-gray-500 max-w-sm mb-10 leading-relaxed">
+                        A syndicate of elite freelancers engineering the next generation of digital experiences. From Dhaka to the global grid.
+                    </p>
+                    <div class="flex gap-5">
+                        <a href="https://www.facebook.com/profile.php?id=61585404459427" target="_blank" class="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-aeronix-blue transition-all">
+                            <i data-lucide="facebook" class="w-5 h-5"></i>
+                        </a>
+                        <a href="mailto:aeronixonline@gmail.com" class="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-aeronix-blue transition-all">
+                            <i data-lucide="mail" class="w-5 h-5"></i>
+                        </a>
+                    </div>
+                </div>
+
+                <div class="grid sm:grid-cols-2 gap-10">
+                    <div>
+                        <h4 class="font-mono text-[10px] uppercase tracking-widest text-aeronix-blue mb-6">Communications</h4>
+                        <div class="space-y-6">
+                            <a href="tel:+8801933130952" class="flex items-center gap-4 text-gray-400 hover:text-white transition-colors">
+                                <i data-lucide="phone" class="w-4 h-4"></i>
+                                <span class="text-sm font-mono">+880 1933-130952</span>
+                            </a>
+                            <a href="tel:+8801773747918" class="flex items-center gap-4 text-gray-400 hover:text-white transition-colors">
+                                <i data-lucide="phone" class="w-4 h-4"></i>
+                                <span class="text-sm font-mono">+880 1773-747918</span>
+                            </a>
+                        </div>
+                    </div>
+                    <div>
+                        <h4 class="font-mono text-[10px] uppercase tracking-widest text-aeronix-blue mb-6">Inquiries</h4>
+                        <a href="mailto:aeronixonline@gmail.com" class="flex items-center gap-4 text-gray-400 hover:text-white transition-colors">
+                            <i data-lucide="inbox" class="w-4 h-4"></i>
+                            <span class="text-sm font-mono">aeronixonline@gmail.com</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pt-10 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-4">
+                <p class="text-[10px] text-gray-600 font-mono uppercase tracking-widest">
+                    &copy; 2026 Aeronix. Digital Alchemy Subsystem.
+                </p>
+                <div class="flex gap-8 text-[10px] font-mono text-gray-600 uppercase tracking-widest">
+                    <span>Privacy Protocol</span>
+                    <span>Service Terms</span>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Initialize Lucide Icons
+        lucide.createIcons();
+
+        // 1. Mobile Menu Logic
+        const menuToggle = document.getElementById('menu-toggle');
+        const menuClose = document.getElementById('menu-close');
+        const mobileMenu = document.getElementById('mobile-menu');
+        const mobileLinks = document.querySelectorAll('.mobile-link');
+
+        const toggleMenu = (state) => {
+            if(state) mobileMenu.classList.add('open');
+            else mobileMenu.classList.remove('open');
+        };
+
+        menuToggle.addEventListener('click', () => toggleMenu(true));
+        menuClose.addEventListener('click', () => toggleMenu(false));
+        mobileLinks.forEach(link => link.addEventListener('click', () => toggleMenu(false)));
+
+        // 2. Cursor Logic (Fluid Trail)
+        (function() {
+            const canvas = document.getElementById("cursor-canvas");
+            const ctx = canvas.getContext("2d");
+            const trailLength = 15;
+            const points = [];
+            let mouse = { x: -100, y: -100 };
+
+            const resize = () => {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            };
+            window.addEventListener("resize", resize);
+            resize();
+
+            window.addEventListener("mousemove", (e) => {
+                mouse.x = e.clientX;
+                mouse.y = e.clientY;
+            });
+
+            const lerp = (start, end, factor) => start + (end - start) * factor;
+
+            const animateCursor = () => {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                let leader = points[0] || { x: mouse.x, y: mouse.y };
+                leader.x = lerp(leader.x, mouse.x, 0.2); 
+                leader.y = lerp(leader.y, mouse.y, 0.2);
+                
+                if (points.length === 0) {
+                    for(let i=0; i<trailLength; i++) points.push({ x: mouse.x, y: mouse.y });
+                }
+                points[0] = leader;
+                
+                for (let i = 1; i < points.length; i++) {
+                    const prev = points[i - 1];
+                    const curr = points[i];
+                    curr.x = lerp(curr.x, prev.x, 0.35);
+                    curr.y = lerp(curr.y, prev.y, 0.35);
+                }
+
+                if (points.length > 2) {
+                    ctx.beginPath();
+                    ctx.moveTo(points[0].x, points[0].y);
+                    for (let i = 1; i < points.length - 1; i++) {
+                        const xc = (points[i].x + points[i + 1].x) / 2;
+                        const yc = (points[i].y + points[i + 1].y) / 2;
+                        ctx.quadraticCurveTo(points[i].x, points[i].y, xc, yc);
+                    }
+                    ctx.lineCap = 'round';
+                    ctx.shadowBlur = 10;
+                    ctx.shadowColor = '#007AFF';
+                    ctx.strokeStyle = 'rgba(0, 122, 255, 0.5)';
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+                }
+                requestAnimationFrame(animateCursor);
+            };
+            animateCursor();
+        })();
+
+        // 3. Card Tilt Effect
+        const initTilt = () => {
+            const isMobile = window.innerWidth < 768;
+            if (isMobile) return; // Disable tilt on mobile for performance
+
+            document.querySelectorAll('.tilt-card').forEach(card => {
+                card.addEventListener('mousemove', (e) => {
+                    const rect = card.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    const xRotation = -((y - rect.height/2) / rect.height * 8); 
+                    const yRotation = (x - rect.width/2) / rect.width * 8;
+                    card.style.transform = `perspective(1000px) rotateX(${xRotation}deg) rotateY(${yRotation}deg) scale(1.02)`;
+                });
+
+                card.addEventListener('mouseleave', () => {
+                    card.style.transform = 'perspective(1000px) rotateX(0) rotateY(0) scale(1)';
+                });
+            });
+        };
+        initTilt();
+
+        // 4. Scroll Reveal Observer
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('active');
+                }
+            });
+        }, { threshold: 0.1 });
+
+        document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+    </script>
+</body>
+</html>
